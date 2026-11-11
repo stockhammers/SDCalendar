@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>November 2026 Installation Calendar</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --text: #1d2330; --muted: #6b7384;
+    --border: #dfe3ea; --accent: #2d5bd8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121519; --surface: #1b2027; --text: #e7eaf0; --muted: #98a1b3;
+      --border: #2c333d; --accent: #7ea2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  button {
+    font: inherit; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.small { padding: 2px 7px; font-size: 12px; }
+  input, select, textarea {
+    font: inherit; width: 100%; padding: 7px 8px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); margin-bottom: 8px;
+  }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  .grid-head, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .grid-head div { text-align: center; font-weight: 600; color: var(--muted); padding: 6px 0; font-size: 12px; }
+  .grid { border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+  .cell {
+    min-height: 98px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding: 5px; cursor: pointer; overflow: hidden;
+  }
+  .cell:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .cell.blank { background: color-mix(in srgb, var(--muted) 6%, transparent); cursor: default; }
+  .cell.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .daynum { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .chip {
+    display: block; font-size: 11px; color: #fff; border-radius: 4px; padding: 2px 5px; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .site-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex: 0 0 14px; }
+  .site-row input { margin: 0; padding: 5px 7px; }
+  .count { font-size: 12px; color: var(--muted); min-width: 22px; text-align: right; }
+  .list { list-style: none; padding: 0; margin: 0; }
+  .list li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .list li:last-child { border-bottom: none; }
+  .list .meta { flex: 1; min-width: 0; }
+  .list .notes { color: var(--muted); font-size: 12px; }
+  .empty { color: var(--muted); font-style: italic; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 0; font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .cell { min-height: 70px; } }
+  .ro .card.no-print, .ro #btnClear, .ro .small { display: none !important; }
+  .ro #siteList input { pointer-events: none; border-color: transparent; background: transparent; }
+  #syncNote { color: var(--muted); font-size: 12px; margin: -10px 0 14px; }
+  @media print {
+    @page { size: landscape; margin: 10mm; }
+    body { background: #fff; color: #000; padding: 0; }
+    .no-print, .sidebar { display: none !important; }
+    .layout { display: block; }
+    .card { border: none; padding: 0; }
+    .cell { min-height: 80px; }
+    .chip { color: #000 !important; border: 1px solid #999; background: #fff !important; }
+  }
+</style>
+</head>
+<body>
+
+<h1>November 2026 Installation Calendar</h1>
+<p class="sub">Track installation dates across nine sites. Click a day to pre-fill a date, then add an installation.</p>
+
+<p id="syncNote" class="no-print"></p>
+<div class="toolbar no-print">
+  <button class="primary" id="btnDownload">Download data (JSON)</button>
+  <button id="btnPrint">Print / Save as PDF</button>
+  <button id="btnClear">Clear all installations</button>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="card">
+      <div class="grid-head" id="gridHead"></div>
+      <div class="grid" id="grid"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Installations this month</h2>
+      <ul class="list" id="installList"></ul>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="card no-print" style="margin-bottom:16px">
+      <h2>Add installation</h2>
+      <label for="fSite">Site</label>
+      <select id="fSite"></select>
+      <label for="fDate">Date</label>
+      <input type="date" id="fDate" min="2026-11-01" max="2026-11-30">
+      <label for="fNotes">Notes (optional)</label>
+      <textarea id="fNotes" rows="2" placeholder="Technician, address, order #..."></textarea>
+      <button class="primary" id="btnAdd" style="width:100%">Add installation</button>
+      <p id="formMsg" class="sub" style="margin:8px 0 0;color:#c0392b;display:none"></p>
+    </div>
+
+    <div class="card">
+      <h2>Sites</h2>
+      <p class="sub" style="margin:0 0 10px;font-size:12px">Rename each site. Counts show installations scheduled this month.</p>
+      <div id="siteList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const YEAR = 2026, MONTH = 10; // November (0-indexed)
+  const STORE_KEY = "install-calendar-nov-2026";
+  const COLORS = ["#2d5bd8", "#1e9e6a", "#e0863a", "#c23b6b", "#7a4fd1", "#1a9ab0", "#b5862a", "#d2483b", "#5b7083"];
+  const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  let sites = Array.from({ length: 9 }, (_, i) => ({ name: "Site " + (i + 1), color: COLORS[i] }));
+  let installs = [];
+  let selectedDate = null;
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pad = (n) => String(n).padStart(2, "0");
+  const isoDate = (d) => `${YEAR}-${pad(MONTH + 1)}-${pad(d)}`;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.sites) && data.sites.length === 9) sites = data.sites;
+      if (Array.isArray(data.installs)) installs = data.installs;
+    } catch (e) { /* storage unavailable: keep in-memory state */ }
+  }
+  let readOnly = false;
+  function save() {
+    if (readOnly) return;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ sites, installs })); } catch (e) {}
+  }
+
+  function monthInstalls() {
+    return installs.filter((x) => x.date.startsWith(`${YEAR}-${pad(MONTH + 1)}`));
+  }
+
+  function renderSites() {
+    const counts = sites.map(() => 0);
+    monthInstalls().forEach((x) => counts[x.site]++);
+    $("siteList").innerHTML = sites.map((s, i) => `
+      <div class="site-row">
+        <span class="swatch" style="background:${s.color}"></span>
+        <input data-site="${i}" value="${esc(s.name)}" aria-label="Site ${i + 1} name">
+        <span class="count">${counts[i]}</span>
+      </div>`).join("");
+    $("fSite").innerHTML = sites.map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join("");
+    $("legend").innerHTML = sites.map((s) => `<span><i class="swatch" style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  }
+
+  function renderHead() {
+    $("gridHead").innerHTML = WEEKDAYS.map((d) => `<div>${d}</div>`).join("");
+  }
+
+  function renderGrid() {
+    const first = new Date(YEAR, MONTH, 1).getDay();
+    const days = new Date(YEAR, MONTH + 1, 0).getDate();
+    let html = "";
+    for (let i = 0; i < first; i++) html += `<div class="cell blank"></div>`;
+    for (let d = 1; d <= days; d++) {
+      const iso = isoDate(d);
+      const todays = installs.filter((x) => x.date === iso);
+      const chips = todays.map((x) => {
+        const s = sites[x.site];
+        return `<span class="chip" style="background:${s.color}" title="${esc(s.name)}${x.notes ? " - " + esc(x.notes) : ""}">${esc(s.name)}</span>`;
+      }).join("");
+      html += `<div class="cell${iso === selectedDate ? " selected" : ""}" data-date="${iso}">
+        <div class="daynum">${d}</div>${chips}</div>`;
+    }
+    const total = first + days;
+    const trailing = (7 - (total % 7)) % 7;
+    for (let i = 0; i < trailing; i++) html += `<div class="cell blank"></div>`;
+    $("grid").innerHTML = html;
+  }
+
+  function renderList() {
+    const items = monthInstalls().sort((a, b) => a.date.localeCompare(b.date));
+    if (!items.length) {
+      $("installList").innerHTML = `<li class="empty">No installations scheduled for November 2026.</li>`;
+      return;
+    }
+    $("installList").innerHTML = items.map((x) => {
+      const s = sites[x.site];
+      const day = new Date(x.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      return `<li>
+        <span class="swatch" style="background:${s.color};margin-top:3px"></span>
+        <div class="meta"><strong>${esc(day)}</strong> &middot; ${esc(s.name)}
+          ${x.notes ? `<div class="notes">${esc(x.notes)}</div>` : ""}</div>
+        <button class="small no-print" data-del="${x.id}" aria-label="Delete">Remove</button>
+      </li>`;
+    }).join("");
+  }
+
+  function renderAll() {
+    renderSites();
+    renderGrid();
+    renderList();
+    save();
+  }
+
+  function showMsg(text) {
+    const m = $("formMsg");
+    m.textContent = text;
+    m.style.display = text ? "block" : "none";
+  }
+
+  // Events
+  $("siteList").addEventListener("input", (e) => {
+    const i = e.target.getAttribute("data-site");
+    if (i !== null) { sites[+i].name = e.target.value.trim() || ("Site " + (+i + 1)); renderAll(); }
+  });
+
+  $("grid").addEventListener("click", (e) => {
+    const cell = e.target.closest(".cell[data-date]");
+    if (!cell) return;
+    selectedDate = cell.getAttribute("data-date");
+    $("fDate").value = selectedDate;
+    renderGrid();
+  });
+
+  $("btnAdd").addEventListener("click", () => {
+    const date = $("fDate").value;
+    if (!date || !date.startsWith(`${YEAR}-${pad(MONTH + 1)}`)) {
+      showMsg("Please choose a date in November 2026.");
+      return;
+    }
+    showMsg("");
+    installs.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      site: +$("fSite").value,
+      date,
+      notes: $("fNotes").value.trim()
+    });
+    $("fNotes").value = "";
+    selectedDate = date;
+    renderAll();
+  });
+
+  $("installList").addEventListener("click", (e) => {
+    const id = e.target.getAttribute("data-del");
+    if (!id) return;
+    installs = installs.filter((x) => x.id !== id);
+    renderAll();
+  });
+
+  $("btnDownload").addEventListener("click", () => {
+    const payload = { month: "November 2026", sites, installs: monthInstalls() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "november_2026_installations.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  $("btnPrint").addEventListener("click", () => window.print());
+
+  $("btnClear").addEventListener("click", () => {
+    if (confirm("Remove all installations for this calendar?")) {
+      installs = [];
+      selectedDate = null;
+      renderAll();
+    }
+  });
+
+  // Shared schedule: data.json in the same folder is the source of truth when present.
+  async function loadShared() {
+    try {
+      const r = await fetch("data.json?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (Array.isArray(d.sites) && d.sites.length === 9) {
+        sites = d.sites.map((x, i) => ({ name: String((x && x.name) || "Site " + (i + 1)), color: COLORS[i] }));
+      }
+      installs = (Array.isArray(d.installs) ? d.installs : []).filter((x) => x && x.date).map((x, i) => ({
+        id: String(x.id || "j" + i), site: Math.min(8, Math.max(0, +x.site || 0)), date: String(x.date), notes: String(x.notes || "")
+      }));
+      readOnly = true;
+      document.body.classList.add("ro");
+      $("syncNote").textContent = "Shared schedule - refreshes automatically every minute. Last checked " + new Date().toLocaleTimeString() + ".";
+      if (!document.activeElement || document.activeElement === document.body) renderAll();
+    } catch (e) { /* no data.json: stay in local mode */ }
+  }
+
+  load();
+  renderHead();
+  renderAll();
+  loadShared();
+  setInterval(() => { if (!document.hidden) loadShared(); }, 60000);
+})();
+</script>
+</body>
+</html>
